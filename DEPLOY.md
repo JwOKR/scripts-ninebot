@@ -16,7 +16,17 @@
 
 ## 零、脚本地址
 
-仓库已公开，下面配置里的脚本地址直接用这两条之一（都实测 HTTP 200）：
+**最省事**：直接用仓库里现成的客户端配置文件，按 URL 安装，不用抄配置——
+
+| 客户端 | 安装链接 |
+|---|---|
+| Surge | `https://raw.githubusercontent.com/JwOKR/scripts-ninebot/main/clients/ninebot.sgmodule` |
+| Loon | `https://raw.githubusercontent.com/JwOKR/scripts-ninebot/main/clients/ninebot.plugin` |
+| Quantumult X | `https://raw.githubusercontent.com/JwOKR/scripts-ninebot/main/clients/ninebot-qx.conf`（定时任务需手动加一行） |
+
+细节见 [clients/README.md](clients/README.md)。
+
+想手动配的话，脚本地址用下面两条之一（都实测 HTTP 200）：
 
 ```
 主用  https://raw.githubusercontent.com/JwOKR/scripts-ninebot/main/ninebot-sign.js

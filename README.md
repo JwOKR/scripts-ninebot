@@ -19,11 +19,29 @@
 ## 目录
 
 ```
-ninebot-sign.js        # 主脚本（客户端与 Node 通用）
-DEPLOY.md              # 各平台配置 + NAS 定时部署 + 排障
-REVIEW.md              # 代码审查报告（15 项问题）
-tests/mock-test.js     # 本地 mock 验证，5 用例
+ninebot-sign.js            # 主脚本（客户端与 Node 通用）
+clients/                   # 各客户端配置文件，可 URL 一键安装
+  ├── ninebot.sgmodule     #   Surge
+  ├── ninebot.plugin       #   Loon
+  ├── ninebot-qx.conf      #   Quantumult X 远程重写
+  └── README.md            #   各客户端安装步骤
+DEPLOY.md                  # 详细部署 + NAS 定时 + 排障
+REVIEW.md                  # 代码审查报告（15 项问题）
+tests/mock-test.js         # 本地 mock 验证，5 用例
 ```
+
+## 客户端一键安装
+
+不想手抄配置就用这些链接，装完开 MITM 就能抓 Token：
+
+| 客户端 | 安装链接 |
+|---|---|
+| **Surge** | `https://raw.githubusercontent.com/JwOKR/scripts-ninebot/main/clients/ninebot.sgmodule` |
+| **Loon** | `https://raw.githubusercontent.com/JwOKR/scripts-ninebot/main/clients/ninebot.plugin` |
+| **Quantumult X** | `https://raw.githubusercontent.com/JwOKR/scripts-ninebot/main/clients/ninebot-qx.conf`（定时任务仍需手动加一行，见 [clients/README.md](clients/README.md)） |
+| **Stash / Egern / Shadowrocket** | 先试 Surge 模块，不行按 [DEPLOY.md](DEPLOY.md) 手动建 |
+
+各客户端具体步骤：[clients/README.md](clients/README.md)
 
 ## 脚本地址
 
@@ -34,9 +52,11 @@ https://cdn.jsdelivr.net/gh/JwOKR/scripts-ninebot@main/ninebot-sign.js   # raw �
 
 ## 快速开始
 
-1. 上面任一地址即为脚本 URL，直接填进客户端配置；
-2. 按对应客户端配置挂上 **http-request** 脚本 + **cron** 脚本，MITM hostname 加 `cn-cbu-gateway.ninebot.com`。完整配置见 [DEPLOY.md](DEPLOY.md)；
+1. 上面链接装客户端配置（或按 [DEPLOY.md](DEPLOY.md) 手动配）；
+2. **开 MITM 并信任证书**，hostname 已包含在配置里；
 3. 打开 App 进签到页点一次签到 → 收到「获取成功」通知 → 手动运行一次定时脚本确认。
+
+手动配的话，最小配置长这样：
 
 ```ini
 # Surge 示例
