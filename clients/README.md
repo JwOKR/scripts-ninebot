@@ -29,6 +29,8 @@ raw 拉不到就用 jsDelivr，把 `https://raw.githubusercontent.com/JwOKR/scri
 
 模块里已经包含抓 Token 脚本、每天 8:05 的签到任务、MITM hostname，装完只需开 MITM。
 
+> 模块头部只写了 `#!name` / `#!desc` 两个字段。`#!author` `#!homepage` 之类的元数据在 Surge 模块里不保证被识别，为了不因一个没用的字段导致安装失败，索性不加。
+
 改参数：在「模块」里编辑该模块，把 `argument="LogLevel=info&Retry=2&Interval=800"` 按需改。
 
 手动测试：Surge → 首页 → 脚本 → 找到 `九号出行签到` → 立即运行。

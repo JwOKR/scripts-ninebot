@@ -1,7 +1,5 @@
 #!name=九号出行签到
 #!desc=自动签到领 N 币 · Token 拦截抓取 · 多账号 · 失败重试
-#!author=凉心 / 蛋卷
-#!homepage=https://github.com/JwOKR/scripts-ninebot
 
 [Script]
 # 抓 Token：拦截 user-sign 请求，只取请求头，不需要 body
