@@ -14,68 +14,20 @@
 
 ---
 
-## 零、脚本地址怎么来（本仓库是私有仓库，必读）
+## 零、脚本地址
 
-脚本托管在私有仓库 `JwOKR/scripts-ninebot`。私有仓库的 raw 链接客户端拉不到，所以下面配置里的 `{{SCRIPT_URL}}` 必须换成三种方案之一：
-
-### 方案 A：翻成公开仓库（最省事）
-
-仓库 Settings → 最下面 Danger Zone → Change visibility → Public。之后直接用：
+仓库已公开，下面配置里的脚本地址直接用这两条之一（都实测 HTTP 200）：
 
 ```
-{{SCRIPT_URL}} = https://raw.githubusercontent.com/JwOKR/scripts-ninebot/main/ninebot-sign.js
+主用  https://raw.githubusercontent.com/JwOKR/scripts-ninebot/main/ninebot-sign.js
+备用  https://cdn.jsdelivr.net/gh/JwOKR/scripts-ninebot@main/ninebot-sign.js
 ```
 
-脚本里没有 token、没有账号数据，公开不会泄露任何凭据。
+- 国内直连 `raw.githubusercontent.com` 偶尔会抽，拉不到就换 jsDelivr。
+- jsDelivr 有缓存，改完脚本可能几分钟才生效；急着验证就用 raw 并加个 `?t=时间戳` 破缓存。
+- 脚本里没有 token、没有账号数据，公开不泄露任何凭据。
 
-### 方案 B：Cloudflare Worker 做私有 raw 代理（保持私有）
-
-20 行 Worker，把带鉴权的内容吐成纯 JS（你已经玩过 Workers，这个比配客户端省事）：
-
-```js
-const OWNER = "JwOKR", REPO = "scripts-ninebot", BRANCH = "main";
-
-export default {
-  async fetch(req, env) {
-    const url = new URL(req.url);
-    const path = url.pathname.replace(/^\/+/, "");
-    if (!path || path.includes("..")) return new Response("not found", { status: 404 });
-    if (env.KEY && url.searchParams.get("key") !== env.KEY) return new Response("forbidden", { status: 403 });
-
-    const api = `https://api.github.com/repos/${OWNER}/${REPO}/contents/${path}?ref=${BRANCH}`;
-    const r = await fetch(api, {
-      headers: {
-        Authorization: `Bearer ${env.GH_TOKEN}`,
-        Accept: "application/vnd.github.raw",
-        "User-Agent": "ninebot-proxy",
-      },
-    });
-    if (!r.ok) return new Response(`upstream ${r.status}`, { status: 502 });
-    return new Response(r.body, {
-      headers: { "Content-Type": "application/javascript; charset=utf-8", "Cache-Control": "max-age=300" },
-    });
-  },
-};
-```
-
-Worker 里配两个变量：
-
-| 变量 | 值 |
-|---|---|
-| `GH_TOKEN` | fine-grained PAT，只给 `scripts-ninebot` 这一个仓库的 **Contents: Read** |
-| `KEY` | 自定义一串随机字符，防止别人蹭你的代理 |
-
-然后：
-
-```
-{{SCRIPT_URL}} = https://<你的worker>.workers.dev/ninebot-sign.js?key=<你设的KEY>
-```
-
-### 方案 C：本机/局域网文件
-
-Surge macOS 支持 `script-path` 填本地路径；其他客户端把你拉不到远程脚本时，把 `ninebot-sign.js` 内容整段贴进客户端的「本地脚本」编辑框（Loon / QX / Stash 都支持）。
-
-> 下文所有 `{{SCRIPT_URL}}` 请按上面任一方案替换，不要原样粘贴。
+> 如果以后改回私有仓库，这两条都会失效，需要换成带鉴权的 Worker 反代（`Accept: application/vnd.github.raw` + fine-grained PAT 的 Contents: Read）。
 
 ---
 
@@ -98,10 +50,10 @@ Surge macOS 支持 `script-path` 填本地路径；其他客户端把你拉不�
 ```ini
 [Script]
 # 抓 Token：只取请求头，不需要 body
-九号出行抓Token = type=http-request,pattern=^https?://cn-cbu-gateway\.ninebot\.com/.*user-sign,script-path={{SCRIPT_URL}},requires-body=false,max-size=0
+九号出行抓Token = type=http-request,pattern=^https?://cn-cbu-gateway\.ninebot\.com/.*user-sign,script-path=https://raw.githubusercontent.com/JwOKR/scripts-ninebot/main/ninebot-sign.js,requires-body=false,max-size=0
 
 # 每天 8:05 签到
-九号出行签到 = type=cron,cronexp="5 8 * * *",script-path={{SCRIPT_URL}},timeout=60,wake-system=true,argument="LogLevel=info&Retry=2&Interval=800"
+九号出行签到 = type=cron,cronexp="5 8 * * *",script-path=https://raw.githubusercontent.com/JwOKR/scripts-ninebot/main/ninebot-sign.js,timeout=60,wake-system=true,argument="LogLevel=info&Retry=2&Interval=800"
 
 [MITM]
 hostname = cn-cbu-gateway.ninebot.com
@@ -123,8 +75,8 @@ hostname = cn-cbu-gateway.ninebot.com
 #!author=凉心 / 蛋卷
 
 [Script]
-http-request ^https?://cn-cbu-gateway\.ninebot\.com/.*user-sign script-path={{SCRIPT_URL}}, requires-body=false, tag=九号出行抓Token
-cron "5 8 * * *" script-path={{SCRIPT_URL}}, tag=九号出行签到, enabled=true, timeout=60
+http-request ^https?://cn-cbu-gateway\.ninebot\.com/.*user-sign script-path=https://raw.githubusercontent.com/JwOKR/scripts-ninebot/main/ninebot-sign.js, requires-body=false, tag=九号出行抓Token
+cron "5 8 * * *" script-path=https://raw.githubusercontent.com/JwOKR/scripts-ninebot/main/ninebot-sign.js, tag=九号出行签到, enabled=true, timeout=60
 
 [MITM]
 hostname = %APPEND% cn-cbu-gateway.ninebot.com
@@ -138,10 +90,10 @@ Loon 的 `timeout` 单位是秒。
 
 ```ini
 [rewrite_local]
-^https?:\/\/cn-cbu-gateway\.ninebot\.com\/.*user-sign url script-request-header {{SCRIPT_URL}}
+^https?:\/\/cn-cbu-gateway\.ninebot\.com\/.*user-sign url script-request-header https://raw.githubusercontent.com/JwOKR/scripts-ninebot/main/ninebot-sign.js
 
 [task_local]
-5 8 * * * {{SCRIPT_URL}}, tag=九号出行签到, enabled=true
+5 8 * * * https://raw.githubusercontent.com/JwOKR/scripts-ninebot/main/ninebot-sign.js, tag=九号出行签到, enabled=true
 
 [mitm]
 hostname = cn-cbu-gateway.ninebot.com

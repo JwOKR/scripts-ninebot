@@ -25,17 +25,24 @@ REVIEW.md              # 代码审查报告（15 项问题）
 tests/mock-test.js     # 本地 mock 验证，5 用例
 ```
 
+## 脚本地址
+
+```
+https://raw.githubusercontent.com/JwOKR/scripts-ninebot/main/ninebot-sign.js
+https://cdn.jsdelivr.net/gh/JwOKR/scripts-ninebot@main/ninebot-sign.js   # raw 拉不到时的备用
+```
+
 ## 快速开始
 
-1. 按 [DEPLOY.md](DEPLOY.md) 第零节把 `{{SCRIPT_URL}}` 换成你能用的脚本地址；
-2. 按对应客户端配置挂上 **http-request** 脚本 + **cron** 脚本，MITM hostname 加 `cn-cbu-gateway.ninebot.com`；
+1. 上面任一地址即为脚本 URL，直接填进客户端配置；
+2. 按对应客户端配置挂上 **http-request** 脚本 + **cron** 脚本，MITM hostname 加 `cn-cbu-gateway.ninebot.com`。完整配置见 [DEPLOY.md](DEPLOY.md)；
 3. 打开 App 进签到页点一次签到 → 收到「获取成功」通知 → 手动运行一次定时脚本确认。
 
 ```ini
 # Surge 示例
 [Script]
-九号出行抓Token = type=http-request,pattern=^https?://cn-cbu-gateway\.ninebot\.com/.*user-sign,script-path={{SCRIPT_URL}},requires-body=false,max-size=0
-九号出行签到 = type=cron,cronexp="5 8 * * *",script-path={{SCRIPT_URL}},timeout=60,wake-system=true
+九号出行抓Token = type=http-request,pattern=^https?://cn-cbu-gateway\.ninebot\.com/.*user-sign,script-path=https://raw.githubusercontent.com/JwOKR/scripts-ninebot/main/ninebot-sign.js,requires-body=false,max-size=0
+九号出行签到 = type=cron,cronexp="5 8 * * *",script-path=https://raw.githubusercontent.com/JwOKR/scripts-ninebot/main/ninebot-sign.js,timeout=60,wake-system=true
 
 [MITM]
 hostname = cn-cbu-gateway.ninebot.com
