@@ -1,0 +1,9 @@
+# 账号表与日志含 token，绝对不能提交
+ninebot-accounts.dat
+*.dat
+ninebot-sign.log
+*.log
+
+# 本地测试产物
+tests/tmp/
+node_modules/

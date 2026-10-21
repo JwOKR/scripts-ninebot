@@ -1,0 +1,297 @@
+# 九号出行签到 · 部署说明
+
+> 适用版本：`ninebot-sign.js` v1.1.0
+> 支持：Surge / Loon / Quantumult X / Stash / Egern / Shadowrocket / Node.js 18+
+
+工作方式有两种模式，脚本自己判断，不需要配两个文件：
+
+| 模式 | 触发方式 | 干什么 |
+|---|---|---|
+| 抓 Token | 拦截 `user-sign` 请求（http-request 脚本） | 从请求头取 `Authorization` + `device_id`，存进本地 |
+| 签到 | 定时任务（cron / task） | 读账号表，逐个签到，发一条汇总通知 |
+
+**必须先完成抓 Token，定时任务才有账号可签。**
+
+---
+
+## 零、脚本地址怎么来（本仓库是私有仓库，必读）
+
+脚本托管在私有仓库 `JwOKR/scripts-ninebot`。私有仓库的 raw 链接客户端拉不到，所以下面配置里的 `{{SCRIPT_URL}}` 必须换成三种方案之一：
+
+### 方案 A：翻成公开仓库（最省事）
+
+仓库 Settings → 最下面 Danger Zone → Change visibility → Public。之后直接用：
+
+```
+{{SCRIPT_URL}} = https://raw.githubusercontent.com/JwOKR/scripts-ninebot/main/ninebot-sign.js
+```
+
+脚本里没有 token、没有账号数据，公开不会泄露任何凭据。
+
+### 方案 B：Cloudflare Worker 做私有 raw 代理（保持私有）
+
+20 行 Worker，把带鉴权的内容吐成纯 JS（你已经玩过 Workers，这个比配客户端省事）：
+
+```js
+const OWNER = "JwOKR", REPO = "scripts-ninebot", BRANCH = "main";
+
+export default {
+  async fetch(req, env) {
+    const url = new URL(req.url);
+    const path = url.pathname.replace(/^\/+/, "");
+    if (!path || path.includes("..")) return new Response("not found", { status: 404 });
+    if (env.KEY && url.searchParams.get("key") !== env.KEY) return new Response("forbidden", { status: 403 });
+
+    const api = `https://api.github.com/repos/${OWNER}/${REPO}/contents/${path}?ref=${BRANCH}`;
+    const r = await fetch(api, {
+      headers: {
+        Authorization: `Bearer ${env.GH_TOKEN}`,
+        Accept: "application/vnd.github.raw",
+        "User-Agent": "ninebot-proxy",
+      },
+    });
+    if (!r.ok) return new Response(`upstream ${r.status}`, { status: 502 });
+    return new Response(r.body, {
+      headers: { "Content-Type": "application/javascript; charset=utf-8", "Cache-Control": "max-age=300" },
+    });
+  },
+};
+```
+
+Worker 里配两个变量：
+
+| 变量 | 值 |
+|---|---|
+| `GH_TOKEN` | fine-grained PAT，只给 `scripts-ninebot` 这一个仓库的 **Contents: Read** |
+| `KEY` | 自定义一串随机字符，防止别人蹭你的代理 |
+
+然后：
+
+```
+{{SCRIPT_URL}} = https://<你的worker>.workers.dev/ninebot-sign.js?key=<你设的KEY>
+```
+
+### 方案 C：本机/局域网文件
+
+Surge macOS 支持 `script-path` 填本地路径；其他客户端把你拉不到远程脚本时，把 `ninebot-sign.js` 内容整段贴进客户端的「本地脚本」编辑框（Loon / QX / Stash 都支持）。
+
+> 下文所有 `{{SCRIPT_URL}}` 请按上面任一方案替换，不要原样粘贴。
+
+---
+
+## 一、先抓 Token（所有平台通用步骤）
+
+1. 把脚本挂到客户端（下面各平台配置），**打开 MITM 并信任证书**，hostname 加 `cn-cbu-gateway.ninebot.com`。
+2. 手机打开 **九号出行 App**，登录要签到的账号。
+3. 进「我的」→ 签到 / 我的 N 币 页面，**点一次签到**（或下拉刷新）。
+4. 收到通知：**`九号出行 签到 · 获取成功 · 已保存新账号 aabbcc…8899`** → 抓取成功。
+5. 再挂定时任务，手动「立即运行」一次，确认能收到签到结果通知。
+
+多账号：App 里退出登录 → 换下一个号 → 重复第 3 步。脚本按 `deviceId` 去重追加，最多不限个数。
+
+> 抓 Token 时 App 必须在前台，后台可能走缓存不产生请求。
+
+---
+
+## 二、Surge
+
+```ini
+[Script]
+# 抓 Token：只取请求头，不需要 body
+九号出行抓Token = type=http-request,pattern=^https?://cn-cbu-gateway\.ninebot\.com/.*user-sign,script-path={{SCRIPT_URL}},requires-body=false,max-size=0
+
+# 每天 8:05 签到
+九号出行签到 = type=cron,cronexp="5 8 * * *",script-path={{SCRIPT_URL}},timeout=60,wake-system=true,argument="LogLevel=info&Retry=2&Interval=800"
+
+[MITM]
+hostname = cn-cbu-gateway.ninebot.com
+```
+
+- `argument` 可选，不写就用默认值。
+- `cronexp` 是 5 段标准 cron（分 时 日 月 周）。
+- 想手动测：Surge → 首页 → 脚本 → 找到该脚本 → 立即运行。
+
+---
+
+## 三、Loon
+
+存成 `九号出行签到.plugin`，用 `plugin=` 引入：
+
+```ini
+#!name=九号出行签到
+#!desc=自动签到领N币，多账号，失败重试
+#!author=凉心 / 蛋卷
+
+[Script]
+http-request ^https?://cn-cbu-gateway\.ninebot\.com/.*user-sign script-path={{SCRIPT_URL}}, requires-body=false, tag=九号出行抓Token
+cron "5 8 * * *" script-path={{SCRIPT_URL}}, tag=九号出行签到, enabled=true, timeout=60
+
+[MITM]
+hostname = %APPEND% cn-cbu-gateway.ninebot.com
+```
+
+Loon 的 `timeout` 单位是秒。
+
+---
+
+## 四、Quantumult X
+
+```ini
+[rewrite_local]
+^https?:\/\/cn-cbu-gateway\.ninebot\.com\/.*user-sign url script-request-header {{SCRIPT_URL}}
+
+[task_local]
+5 8 * * * {{SCRIPT_URL}}, tag=九号出行签到, enabled=true
+
+[mitm]
+hostname = cn-cbu-gateway.ninebot.com
+```
+
+**注意类型选 `script-request-header`，不要选 `script-request-body`。** 只需要请求头，选 body 会多劫持一次响应，且 `$done` 语义不同。
+
+QX 不支持脚本参数，改默认值需要直接改脚本里的 `CFG`。
+
+---
+
+## 五、Stash / Egern / Shadowrocket
+
+这三个平台的脚本 API 与 Surge 同族（`$httpClient` / `$persistentStore` / `$notification`），脚本可直接用，配置按下图思路在各自的 YAML / 界面里建两条：
+
+1. 一条 **http-request**，匹配 `^https?://cn-cbu-gateway\.ninebot\.com/.*user-sign`（Stash 用 `- http-request,<pattern>,<script名>` 规则）；
+2. 一条 **cron**，每天一次；
+3. MITM hostname 加 `cn-cbu-gateway.ninebot.com`。
+
+> 各家 YAML 字段名有差异，以你当前版本的官方文档为准。这三个平台我没有实机验证，配好后先用「立即运行」确认能收到通知。
+
+---
+
+## 六、Node.js / 飞牛 NAS（无客户端，纯定时）
+
+要求 **Node 18+**（用到内置 `fetch`，零 npm 依赖）。
+
+### 目录结构
+
+```
+/vol1/1000/ninebot/
+├── ninebot-sign.js
+├── ninebot-accounts.dat   # 账号表，脚本自动生成
+├── ninebot-sign.log       # 运行日志
+└── run.sh
+```
+
+### run.sh
+
+```sh
+#!/bin/sh
+cd "$(dirname "$0")" || exit 1
+export NINEBOT_DATA="$PWD/ninebot-accounts.dat"
+export NINEBOT_LOG="$PWD/ninebot-sign.log"
+export NINEBOT_ARG="LogLevel=info&Retry=2&Interval=800"
+exec "$(command -v node)" ninebot-sign.js
+```
+
+```sh
+chmod +x run.sh
+chmod 600 ninebot-accounts.dat 2>/dev/null
+```
+
+### 怎么拿到账号表
+
+NAS 上没法用 MITM 抓包。两个办法：
+
+1. **从客户端搬过来**：先在手机客户端抓到 Token，然后手动写一行到 `ninebot-accounts.dat`：
+   ```
+   deviceId:token
+   ```
+   多个账号用 `;` 分隔。deviceId / token 从客户端存储里取（Surge 的持久化存储、QX 的 `Ninebot.Accounts` 键）。
+2. **走代理抓一次**：把手机代理指到局域网里的抓包工具，抓一次 `user-sign` 请求，从请求头抄 `device_id` 和 `Authorization`。
+
+### 定时任务
+
+`crontab -e`（飞牛 OS 建议用 `sudo` 写到 `/etc/cron.d/ninebot-sign` 更稳）：
+
+```cron
+# /etc/cron.d/ninebot-sign
+SHELL=/bin/sh
+5 8 * * * root /vol1/1000/ninebot/run.sh
+```
+
+或者用飞牛自带的「计划任务」界面，命令填 `/vol1/1000/ninebot/run.sh`，周期每天 8:05。
+
+### 用 Docker 跑（宿主机 Node 版本太老时）
+
+`docker-compose.yml`：
+
+```yaml
+services:
+  ninebot-sign:
+    image: node:22-alpine
+    container_name: ninebot-sign
+    working_dir: /app
+    volumes:
+      - ./:/app
+    environment:
+      NINEBOT_DATA: /app/ninebot-accounts.dat
+      NINEBOT_LOG: /app/ninebot-sign.log
+      NINEBOT_ARG: LogLevel=info&Retry=2&Interval=800
+    command: ["node", "ninebot-sign.js"]
+```
+
+执行：`sudo docker compose run --rm ninebot-sign`（飞牛上新版 Docker 用 `docker compose`，空格）。
+
+手动验证：
+
+```sh
+/vol1/1000/ninebot/run.sh; echo "退出码=$?"
+tail -20 /vol1/1000/ninebot/ninebot-sign.log
+```
+
+退出码 `0` = 全部成功，`1` = 有账号失败或未配置账号。可以拿这个接监控告警。
+
+---
+
+## 七、参数表
+
+客户端脚本参数格式 `key=value&key2=value2`，Node 环境用环境变量 `NINEBOT_ARG`。
+
+| 参数 | 默认 | 说明 |
+|---|---|---|
+| `LogLevel` | `info` | `off` / `error` / `warn` / `info` / `debug` |
+| `Retry` | `2` | 网络错误、429、5xx 的重试次数，0–5 |
+| `Timeout` | `10` | 单请求超时（秒） |
+| `Interval` | `800` | 多账号之间的间隔（毫秒），另加 0–400ms 随机抖动 |
+| `ShowDeviceId` | `true` | 通知里显示掩码后的 deviceId；`false` 时显示 `账号#1` |
+| `BaseUrl` | `https://cn-cbu-gateway.ninebot.com` | 一般不用改，调试时指本地 mock |
+
+---
+
+## 八、排障
+
+| 现象 | 原因 | 处理 |
+|---|---|---|
+| 通知「未配置账号」 | 一条都没抓到 | 检查 MITM 是否真的开启、证书是否信任、hostname 是否加了域名；App 里必须进签到页并点签到 |
+| 通知「失败: 系统错误」 | **Token 失效**（实测接口失效时就是回这个，不是 401） | 重抓 Token |
+| 通知「失败: HTTP 401」 | Token 或设备头不对 | 重抓；确认 deviceId 与 token 是同一个账号的 |
+| 通知里看不到 deviceId | `ShowDeviceId=false` | 改参数 |
+| QX 抓不到 | 用了 `script-request-body`，或 mitm 没开 | 改成 `script-request-header` |
+| Node 报「没有内置 fetch」 | Node < 18 | 升级，或用上面的 node:22-alpine 镜像 |
+| 每天都提示「已签」 | 正常，签到幂等 | 无需处理 |
+| Cron 里跑但没日志 | crontab 里没 `cd` 到脚本目录 | 用 `run.sh` 包一层 |
+| 升级后旧账号没了 | 原版 Node 分支有把账号表解析成空对象的 bug | 重抓一次 Token（修复版存储键没变，客户端环境不受影响） |
+
+---
+
+## 九、安全提醒
+
+- **`token` 等同于账号登录凭据**，拿到就能直接调接口签到/查询。别把配置、通知截图、`ninebot-accounts.dat` 发给别人，也不要提交到公开仓库。
+- 客户端存储（Surge `$persistentStore` / QX `$prefs`）是明文；NAS 上的 `ninebot-accounts.dat` 建议 `chmod 600`。
+- 抓完 Token 建议关掉 MITM（省电、减握手开销）；保留也行，token 变了脚本会自动更新。
+- 只给一个账号签名额时，别把多个号塞同一个 deviceId，会串。
+
+---
+
+## 十、换用修复版要注意什么
+
+- 存储键仍是 `Ninebot.Accounts`，**客户端直接替换脚本 URL 即可**，已抓的账号保留。
+- 但原版 Node 分支因为把账号表当 JSON 解析，**NAS 上原有账号大概率是空的**，升级后需要重新导一次。
+- 参数名全兼容原版 `LogLevel`，其余新增参数不配就用默认值。
