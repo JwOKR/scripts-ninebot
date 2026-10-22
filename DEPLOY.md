@@ -223,6 +223,7 @@ tail -20 /vol1/1000/ninebot/ninebot-sign.log
 | `Timeout` | `10` | 单请求超时（秒） |
 | `Interval` | `800` | 多账号之间的间隔（毫秒），另加 0–400ms 随机抖动 |
 | `ShowDeviceId` | `true` | 通知里显示掩码后的 deviceId；`false` 时显示 `账号#1` |
+| `Policy` | 空 | 指定节点/策略。网络不通时设 `DIRECT` 强制直连（Loon→`node`，Surge→`policy`，Stash→`X-Stash-Selected-Proxy`，QX→`opts.policy`） |
 | `BaseUrl` | `https://cn-cbu-gateway.ninebot.com` | 一般不用改，调试时指本地 mock |
 
 ---
@@ -233,6 +234,8 @@ tail -20 /vol1/1000/ninebot/ninebot-sign.log
 |---|---|---|
 | 通知「未配置账号」 | 一条都没抓到 | 检查 MITM 是否真的开启、证书是否信任、hostname 是否加了域名；App 里必须进签到页并点签到 |
 | 通知「失败: 系统错误」 | **Token 失效**（实测接口失效时就是回这个，不是 401） | 重抓 Token |
+| `Request timeout` / `HTTPClient request failed` | 网络层问题：客户端未联网、当前节点不可用、或流量被走到国外代理 | 加 `Policy=DIRECT` 强制直连；确认客户端 VPN 处于连接状态；v1.1.0 还有个 timeout 单位 bug，升到 1.1.1 再说 |
+| 日志里看不到重试过程 | 老版本重试日志是 debug 级别 | v1.1.1 起改为 info 级别，默认就能看到「第 N/M 次重试」 |
 | 通知「失败: HTTP 401」 | Token 或设备头不对 | 重抓；确认 deviceId 与 token 是同一个账号的 |
 | 通知里看不到 deviceId | `ShowDeviceId=false` | 改参数 |
 | QX 抓不到 | 用了 `script-request-body`，或 mitm 没开 | 改成 `script-request-header` |

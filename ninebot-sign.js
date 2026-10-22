@@ -1,9 +1,12 @@
 /**
  * @name         九号出行 签到（修复版）
  * @description  自动签到领 N 币 · Token 抓取 · 多账号 · 失败重试 · 单号结果可辨识
- * @version      1.1.0
+ * @version      1.1.1
  * @author       凉心（原版） / 蛋卷（修复）
- * @build        2026-10-21
+ * @build        2026-10-22
+ *
+ * 1.1.1 修复：Loon / QX 的 $httpClient timeout 单位是毫秒，修复版统一按秒传导致 100% 超时
+ *             （v1.1.0 自己踩的坑）；新增 Policy 参数；重试日志提到 info 级别
  *
  * 兼容：Surge / Loon / Stash / Egern / Shadowrocket / Quantumult X / Node.js(18+)
  * 说明：作者栏保留原作者，修复点见 REVIEW.md
@@ -59,12 +62,19 @@
 
   var CFG = {
     base: String(ARG.BaseUrl || "https://cn-cbu-gateway.ninebot.com").replace(/\/+$/, ""),
-    timeout: num(ARG.Timeout, 10) > 0 ? num(ARG.Timeout, 10) : 10, // 秒
+    timeout: num(ARG.Timeout, 10) > 0 ? num(ARG.Timeout, 10) : 10, // 秒（内部按平台换算）
     retry: Math.max(0, Math.min(5, num(ARG.Retry, 2))),             // 重试次数
     interval: Math.max(0, num(ARG.Interval, 800)),                  // 多账号间隔 ms
+    policy: String(ARG.Policy || "").trim(),                        // 指定节点/策略，如 DIRECT
     showId: String(ARG.ShowDeviceId || "true").toLowerCase() !== "false",
     logLevel: String(ARG.LogLevel || "info").toLowerCase()
   };
+
+  // ⚠️ 各平台 $httpClient 的 timeout 单位不一致，传错单位等于 100% 超时：
+  //    Loon / Quantumult X / Node.js → 毫秒
+  //    Surge / Stash / Egern / Shadowrocket → 秒
+  var TIMEOUT_IS_MS = (PLATFORM === "Loon" || PLATFORM === "Quantumult X" || IS_NODE);
+  var TIMEOUT_VALUE = TIMEOUT_IS_MS ? CFG.timeout * 1000 : CFG.timeout;
 
   /* ======================= 3. 日志 ======================= */
   var LEVELS = { off: 0, error: 1, warn: 2, info: 3, debug: 4 };
@@ -162,6 +172,20 @@
     var method = (opt.method || "GET").toUpperCase();
     var headers = opt.headers || {};
     var timeoutMs = CFG.timeout * 1000;
+    var policy = CFG.policy;
+
+    // 按平台把「指定节点 / 策略」映射到各自的字段
+    function applyPolicy(target) {
+      if (!policy) return;
+      switch (PLATFORM) {
+        case "Loon": target.node = policy; break;                          // 节点名 / 策略组 / DIRECT
+        case "Surge": target.policy = policy; break;
+        case "Stash": target.headers = target.headers || {}; target.headers["X-Stash-Selected-Proxy"] = encodeURI(policy); break;
+        case "Shadowrocket": target.headers = target.headers || {}; target.headers["X-Surge-Proxy"] = policy; break;
+        case "Quantumult X": target.opts = { policy: policy }; break;
+        default: break;                                                    // Egern / Node 无对应映射
+      }
+    }
 
     // ---- Node.js：用内置 fetch（18+），无需 node-fetch / fetch-cookie ----
     if (IS_NODE) {
@@ -194,6 +218,8 @@
       return new Promise(function (resolve, reject) {
         var req = { url: opt.url, method: method.toLowerCase(), headers: headers };
         if (opt.body !== undefined && opt.body !== null) req.body = opt.body;
+        req.timeout = TIMEOUT_VALUE;
+        applyPolicy(req);
         $task.fetch(req).then(function (res) {
           var code = res.statusCode !== undefined ? res.statusCode : res.status;
           resolve({ status: Number(code), body: res.body, headers: res.headers || {} });
@@ -207,8 +233,9 @@
     return new Promise(function (resolve, reject) {
       if (typeof $httpClient === "undefined") return reject(new Error("当前环境不支持 $httpClient"));
       var fn = method === "POST" ? $httpClient.post : $httpClient.get;
-      var options = { url: opt.url, headers: headers, timeout: CFG.timeout };
+      var options = { url: opt.url, headers: headers, timeout: TIMEOUT_VALUE };
       if (opt.body !== undefined && opt.body !== null) options.body = opt.body;
+      applyPolicy(options);
       fn(options, function (err, res, data) {
         if (err) return reject(new Error(String(err)));
         var code = res && (res.status !== undefined ? res.status : res.statusCode);
@@ -252,7 +279,8 @@
         if (!err.retryable || attempt >= CFG.retry) throw err;
         attempt++;
         var wait = 500 * Math.pow(2, attempt - 1) + Math.floor(Math.random() * 300);
-        log("debug", "第 " + attempt + "/" + CFG.retry + " 次重试，等待 " + wait + "ms → " + url);
+        // 用 info 而不是 debug：重试是排障时必须能看到的信息
+        log("info", "第 " + attempt + "/" + CFG.retry + " 次重试，等待 " + wait + "ms → " + url);
         return sleep(wait).then(run);
       });
     }
@@ -356,6 +384,9 @@
       var hint = "";
       if (isAuthError(err)) hint = "（Token 可能已失效，请重新抓取）";
       else if (err && err.apiCode !== undefined) hint = "（接口返回异常，可能是 Token 失效或服务波动，先重抓 Token 再试）";
+      else if (/timeout|超时|network|failed|ENOTFOUND|ECONNRESET/i.test(String(err && err.message))) {
+        hint = "（网络层失败：检查客户端是否联网、节点是否可用，可加 Policy=DIRECT 强制直连）";
+      }
       return { ok: false, tag: tag, signed: false, text: "失败: " + err.message + hint };
     });
   }
@@ -432,7 +463,8 @@
 
   /* ======================= 10. 入口 ======================= */
   function main() {
-    log("debug", "运行环境: " + PLATFORM + " | retry=" + CFG.retry + " timeout=" + CFG.timeout + "s");
+    log("info", "运行环境: " + PLATFORM + " | retry=" + CFG.retry + " | timeout=" + TIMEOUT_VALUE +
+      (TIMEOUT_IS_MS ? "ms" : "s") + " | policy=" + (CFG.policy || "默认"));
 
     if (typeof $request !== "undefined" && $request) {
       return handleCapture();

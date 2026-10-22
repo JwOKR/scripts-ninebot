@@ -202,3 +202,47 @@ GET /portal/api/user-sign/v2/status  →  HTTP 200
 ## 六、一句话总结
 
 原版能跑，但只在你账号恰好没踩到那几个坑的前提下。修复版把「账号会不会被吞」「失败能不能看出来」「失败后会不会重试」这三件事从"看运气"变成了"确定的"。
+
+---
+
+## 七、附：修复版自己踩的坑（v1.1.1，诚实记录）
+
+我把原版 timeout 单位不统一列为了问题 #9，然后在自己的重写里**把这个坑原样踩了一遍**。
+
+**现象**：JIA 在 Loon 上跑 v1.1.0，签到全失败：
+
+```
+[ERROR] 4C86B0…CB1A HTTPClient request failed with error:Error Domain=LNHTTPClientDomain
+        Code=1 "Request timeout." ...
+[INFO] 汇总: 成功 0/1（新签 0 · 已签 0 · 失败 1）
+```
+
+**原因**：各平台 `$httpClient` 的 `timeout` 单位根本不一样（见 [Loon 官方文档](https://nsloon.app/docs/Script/script_api/)）：
+
+| 平台 | 单位 | 默认 |
+|---|---|---|
+| **Loon** | **毫秒** | 5000 |
+| **Quantumult X** | **毫秒** | — |
+| Node.js | 毫秒 | — |
+| Surge / Stash / Egern / Shadowrocket | **秒** | — |
+
+v1.1.0 统一按秒传 `timeout: 10` → Loon 当成了 **10 毫秒**，必然超时，重试 3 次全超时。
+
+原版其实处理过这件事（那段 `>500 视为毫秒` + 按平台乘 1000 的逻辑），我在重写时嫌它绕，删掉了——结果把正确的东西删了。
+
+**修复**：
+
+```js
+var TIMEOUT_IS_MS = (PLATFORM === "Loon" || PLATFORM === "Quantumult X" || IS_NODE);
+var TIMEOUT_VALUE = TIMEOUT_IS_MS ? CFG.timeout * 1000 : CFG.timeout;
+```
+
+**防复发**：新增 `tests/platform-timeout-test.js`，在 Node 里伪造各平台的全局对象（`$loon` / `$httpClient` / `$task` / `$environment`），让脚本以为自己跑在 Loon/Surge/QX/Stash 上，然后断言实际发出的 `timeout` 数值。7 项全过，其中 Loon 与 QX 必须是 10000、Surge 与 Stash 必须是 10。
+
+**顺带改进**：
+
+- 重试日志从 `debug` 提到 `info` 级别（之前排障时看不见重试过程，只能看到失败结果）；
+- 新增 `Policy` 参数，映射到 Loon 的 `node`、Surge 的 `policy`、Stash 的 `X-Stash-Selected-Proxy`、QX 的 `opts.policy`，可设 `Policy=DIRECT` 强制直连，排除「当前节点是国外代理导致访问国内接口超时」这类问题；
+- 网络层失败时给出针对性提示，不再只报一句「失败」。
+
+教训：**跨平台代码里，凡是"单位"和"默认行为"，都不能想当然。**

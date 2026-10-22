@@ -79,18 +79,24 @@ hostname = cn-cbu-gateway.ninebot.com
 | `Timeout` | `10` | 单请求超时（秒） |
 | `Interval` | `800` | 多账号间隔（毫秒），另加 0–400ms 抖动 |
 | `ShowDeviceId` | `true` | 通知里显示掩码 deviceId，`false` 时为 `账号#1` |
+| `Policy` | 空（跟随当前节点） | 指定节点/策略，排查网络问题时设 `DIRECT` 强制直连 |
 | `BaseUrl` | 官方网关 | 调试用，可指本地 mock |
 
 ## 验证
 
 ```bash
-node tests/mock-test.js
-# PASS  A 新签流程 + N币解析
-# PASS  B 字符串状态码不误签
-# PASS  C 503 重试 2 次后成功
-# PASS  D 401 不重试 + 退出码 1
-# PASS  E 多账号逐条标识
+node tests/mock-test.js             # 业务流程：5 项
+node tests/platform-timeout-test.js # 平台 timeout 单位与策略映射：7 项
 ```
+
+后者是 v1.1.1 加的回归测试——v1.1.0 曾因把 `timeout` 统一按秒传给 Loon（Loon 收毫秒）导致 100% 超时，见 [REVIEW.md](REVIEW.md) 第七节。
+
+## 更新日志
+
+| 版本 | 内容 |
+|---|---|
+| 1.1.1 | 修复 Loon / QX 的 `timeout` 单位（毫秒 vs 秒）；新增 `Policy` 参数；重试日志提到 info 级别 |
+| 1.1.0 | 首个修复版：Node 零依赖、账号不丢、字符串状态码、重试退避、多账号标识 |
 
 ## 安全
 
