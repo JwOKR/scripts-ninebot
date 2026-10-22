@@ -27,7 +27,7 @@ raw 拉不到就用 jsDelivr，把 `https://raw.githubusercontent.com/JwOKR/scri
 
 模块 → 安装新模块 → 填上面的 sgmodule 链接。
 
-模块里已经包含抓 Token 脚本、每天 11:45 的签到任务、MITM hostname，装完只需开 MITM。
+模块里已经包含抓 Token 脚本、每天 12:05 的签到任务、MITM hostname，装完只需开 MITM。
 
 > 模块头部只写了 `#!name` / `#!desc` 两个字段。`#!author` `#!homepage` 之类的元数据在 Surge 模块里不保证被识别，为了不因一个没用的字段导致安装失败，索性不加。
 
@@ -49,7 +49,7 @@ raw 拉不到就用 jsDelivr，把 `https://raw.githubusercontent.com/JwOKR/scri
 2. 编辑你自己的配置文件，在 `[task_local]` 里加一行定时任务：
 
 ```ini
-45 11 * * * https://raw.githubusercontent.com/JwOKR/scripts-ninebot/main/ninebot-sign.js, tag=九号出行签到, enabled=true
+5 12 * * * https://raw.githubusercontent.com/JwOKR/scripts-ninebot/main/ninebot-sign.js, tag=九号出行签到, enabled=true
 ```
 
 QX 不支持远程加载 `[task_local]`，所以这行必须手动加。这一点没有绕过的办法。
