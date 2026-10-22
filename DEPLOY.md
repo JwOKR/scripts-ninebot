@@ -62,8 +62,8 @@
 # 抓 Token：只取请求头，不需要 body
 九号出行抓Token = type=http-request,pattern=^https?://cn-cbu-gateway\.ninebot\.com/.*user-sign,script-path=https://raw.githubusercontent.com/JwOKR/scripts-ninebot/main/ninebot-sign.js,requires-body=false,max-size=0
 
-# 每天 8:05 签到
-九号出行签到 = type=cron,cronexp="5 8 * * *",script-path=https://raw.githubusercontent.com/JwOKR/scripts-ninebot/main/ninebot-sign.js,timeout=60,wake-system=true,argument="LogLevel=info&Retry=2&Interval=800"
+# 每天 11:45 签到
+九号出行签到 = type=cron,cronexp="45 11 * * *",script-path=https://raw.githubusercontent.com/JwOKR/scripts-ninebot/main/ninebot-sign.js,timeout=60,wake-system=true,argument="LogLevel=info&Retry=2&Interval=800"
 
 [MITM]
 hostname = cn-cbu-gateway.ninebot.com
@@ -86,7 +86,7 @@ hostname = cn-cbu-gateway.ninebot.com
 
 [Script]
 http-request ^https?://cn-cbu-gateway\.ninebot\.com/.*user-sign script-path=https://raw.githubusercontent.com/JwOKR/scripts-ninebot/main/ninebot-sign.js, requires-body=false, tag=九号出行抓Token
-cron "5 8 * * *" script-path=https://raw.githubusercontent.com/JwOKR/scripts-ninebot/main/ninebot-sign.js, tag=九号出行签到, enabled=true, timeout=60
+cron "45 11 * * *" script-path=https://raw.githubusercontent.com/JwOKR/scripts-ninebot/main/ninebot-sign.js, tag=九号出行签到, enabled=true, timeout=60
 
 [MITM]
 hostname = %APPEND% cn-cbu-gateway.ninebot.com
@@ -103,7 +103,7 @@ Loon 的 `timeout` 单位是秒。
 ^https?:\/\/cn-cbu-gateway\.ninebot\.com\/.*user-sign url script-request-header https://raw.githubusercontent.com/JwOKR/scripts-ninebot/main/ninebot-sign.js
 
 [task_local]
-5 8 * * * https://raw.githubusercontent.com/JwOKR/scripts-ninebot/main/ninebot-sign.js, tag=九号出行签到, enabled=true
+45 11 * * * https://raw.githubusercontent.com/JwOKR/scripts-ninebot/main/ninebot-sign.js, tag=九号出行签到, enabled=true
 
 [mitm]
 hostname = cn-cbu-gateway.ninebot.com
@@ -175,10 +175,10 @@ NAS 上没法用 MITM 抓包。两个办法：
 ```cron
 # /etc/cron.d/ninebot-sign
 SHELL=/bin/sh
-5 8 * * * root /vol1/1000/ninebot/run.sh
+45 11 * * * root /vol1/1000/ninebot/run.sh
 ```
 
-或者用飞牛自带的「计划任务」界面，命令填 `/vol1/1000/ninebot/run.sh`，周期每天 8:05。
+或者用飞牛自带的「计划任务」界面，命令填 `/vol1/1000/ninebot/run.sh`，周期每天 11:45。
 
 ### 用 Docker 跑（宿主机 Node 版本太老时）
 

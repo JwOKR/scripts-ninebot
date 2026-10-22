@@ -62,7 +62,7 @@ https://cdn.jsdelivr.net/gh/JwOKR/scripts-ninebot@main/ninebot-sign.js   # raw �
 # Surge 示例
 [Script]
 九号出行抓Token = type=http-request,pattern=^https?://cn-cbu-gateway\.ninebot\.com/.*user-sign,script-path=https://raw.githubusercontent.com/JwOKR/scripts-ninebot/main/ninebot-sign.js,requires-body=false,max-size=0
-九号出行签到 = type=cron,cronexp="5 8 * * *",script-path=https://raw.githubusercontent.com/JwOKR/scripts-ninebot/main/ninebot-sign.js,timeout=60,wake-system=true
+九号出行签到 = type=cron,cronexp="45 11 * * *",script-path=https://raw.githubusercontent.com/JwOKR/scripts-ninebot/main/ninebot-sign.js,timeout=60,wake-system=true
 
 [MITM]
 hostname = cn-cbu-gateway.ninebot.com
