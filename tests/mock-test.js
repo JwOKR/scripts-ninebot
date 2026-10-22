@@ -33,7 +33,7 @@ function runScript(port, extraArg) {
     const child = spawn(NODE, [SCRIPT], {
       cwd: TMP,
       env: Object.assign({}, process.env, {
-        NINEBOT_ARG: `BaseUrl=http://127.0.0.1:${port}&LogLevel=debug&Retry=${extraArg.retry}&Interval=0`,
+        NINEBOT_ARG: `BaseUrl=http://127.0.0.1:${port}&LogLevel=debug&Retry=${extraArg.retry}&RetryWait=50&Interval=0`,
         NINEBOT_DATA: dataFile,
         NINEBOT_LOG: path.join(TMP, "test.log"),
       }),
@@ -112,7 +112,7 @@ function check(name, cond, out) {
     const child = spawn(NODE, [SCRIPT], {
       cwd: TMP,
       env: Object.assign({}, process.env, {
-        NINEBOT_ARG: `BaseUrl=http://127.0.0.1:${srv.address().port}&Interval=0`,
+        NINEBOT_ARG: `BaseUrl=http://127.0.0.1:${srv.address().port}&RetryWait=50&Interval=0`,
         NINEBOT_DATA: multi,
         NINEBOT_LOG: path.join(TMP, "test.log"),
       }),

@@ -220,6 +220,7 @@ tail -20 /vol1/1000/ninebot/ninebot-sign.log
 |---|---|---|
 | `LogLevel` | `info` | `off` / `error` / `warn` / `info` / `debug` |
 | `Retry` | `2` | 网络错误、429、5xx 的重试次数，0–5 |
+| `RetryWait` | `3000` | 重试退避基数（毫秒），指数增长：3s → 6s → 12s |
 | `Timeout` | `10` | 单请求超时（秒） |
 | `Interval` | `800` | 多账号之间的间隔（毫秒），另加 0–400ms 随机抖动 |
 | `ShowDeviceId` | `true` | 通知里显示掩码后的 deviceId；`false` 时显示 `账号#1` |
@@ -235,7 +236,8 @@ tail -20 /vol1/1000/ninebot/ninebot-sign.log
 | 通知「未配置账号」 | 一条都没抓到 | 检查 MITM 是否真的开启、证书是否信任、hostname 是否加了域名；App 里必须进签到页并点签到 |
 | 通知「失败: 系统错误」 | **Token 失效**（实测接口失效时就是回这个，不是 401） | 重抓 Token |
 | `Request timeout` / `HTTPClient request failed` | 网络层问题：客户端未联网、当前节点不可用、或流量被走到国外代理 | 加 `Policy=DIRECT` 强制直连；确认客户端 VPN 处于连接状态；v1.1.0 还有个 timeout 单位 bug，升到 1.1.1 再说 |
-| 日志里看不到重试过程 | 老版本重试日志是 debug 级别 | v1.1.1 起改为 info 级别，默认就能看到「第 N/M 次重试」 |
+| **手动跑成功、定时任务跑失败** | 定时触发那一刻网络/隧道还没就绪（iOS 唤醒后 VPN 重建需要几秒） | v1.1.2 起退避基数 3s，能等到网络恢复；仍失败就把时间挪到设备常亮时段，或加 `Retry=4&RetryWait=5000` |
+| 日志里看不到重试过程 | 老版本重试日志是 debug 级别 | v1.1.1 起改为 info 级别，默认就能看到「第 N/M 次重试」（v1.1.2 起还带上次失败原因） |
 | 通知「失败: HTTP 401」 | Token 或设备头不对 | 重抓；确认 deviceId 与 token 是同一个账号的 |
 | 通知里看不到 deviceId | `ShowDeviceId=false` | 改参数 |
 | QX 抓不到 | 用了 `script-request-body`，或 mitm 没开 | 改成 `script-request-header` |

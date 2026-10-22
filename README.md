@@ -76,6 +76,7 @@ hostname = cn-cbu-gateway.ninebot.com
 |---|---|---|
 | `LogLevel` | `info` | `off` / `error` / `warn` / `info` / `debug` |
 | `Retry` | `2` | 网络错误 / 429 / 5xx 重试次数，0–5 |
+| `RetryWait` | `3000` | 重试退避基数（毫秒），指数增长：3s → 6s → 12s |
 | `Timeout` | `10` | 单请求超时（秒） |
 | `Interval` | `800` | 多账号间隔（毫秒），另加 0–400ms 抖动 |
 | `ShowDeviceId` | `true` | 通知里显示掩码 deviceId，`false` 时为 `账号#1` |
@@ -95,6 +96,7 @@ node tests/platform-timeout-test.js # 平台 timeout 单位与策略映射：7 �
 
 | 版本 | 内容 |
 |---|---|
+| 1.1.2 | 重试退避基数 500ms → 3000ms（新增 `RetryWait`），等待网络恢复；重试日志带上次失败原因 |
 | 1.1.1 | 修复 Loon / QX 的 `timeout` 单位（毫秒 vs 秒）；新增 `Policy` 参数；重试日志提到 info 级别 |
 | 1.1.0 | 首个修复版：Node 零依赖、账号不丢、字符串状态码、重试退避、多账号标识 |
 

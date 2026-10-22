@@ -1,10 +1,12 @@
 /**
  * @name         九号出行 签到（修复版）
  * @description  自动签到领 N 币 · Token 抓取 · 多账号 · 失败重试 · 单号结果可辨识
- * @version      1.1.1
+ * @version      1.1.2
  * @author       凉心（原版） / 蛋卷（修复）
  * @build        2026-10-22
  *
+ * 1.1.2 修复：重试退避基数 500ms → 3000ms（新增 RetryWait 参数）——定时任务触发时网络/隧道
+ *             往往尚未就绪，毫秒级等待等不到它恢复，等于白重试；重试日志带上次失败原因
  * 1.1.1 修复：Loon / QX 的 $httpClient timeout 单位是毫秒，修复版统一按秒传导致 100% 超时
  *             （v1.1.0 自己踩的坑）；新增 Policy 参数；重试日志提到 info 级别
  *
@@ -64,6 +66,7 @@
     base: String(ARG.BaseUrl || "https://cn-cbu-gateway.ninebot.com").replace(/\/+$/, ""),
     timeout: num(ARG.Timeout, 10) > 0 ? num(ARG.Timeout, 10) : 10, // 秒（内部按平台换算）
     retry: Math.max(0, Math.min(5, num(ARG.Retry, 2))),             // 重试次数
+    retryWait: Math.max(0, num(ARG.RetryWait, 3000)),               // 重试退避基数 ms（指数增长）
     interval: Math.max(0, num(ARG.Interval, 800)),                  // 多账号间隔 ms
     policy: String(ARG.Policy || "").trim(),                        // 指定节点/策略，如 DIRECT
     showId: String(ARG.ShowDeviceId || "true").toLowerCase() !== "false",
@@ -278,9 +281,12 @@
         if (err.retryable === undefined) err.retryable = true;
         if (!err.retryable || attempt >= CFG.retry) throw err;
         attempt++;
-        var wait = 500 * Math.pow(2, attempt - 1) + Math.floor(Math.random() * 300);
+        // 退避基数默认 3s：定时任务触发时网络/隧道往往还没就绪，
+        // 毫秒级的等待（原 500ms）根本等不到它恢复，等于白重试两次。
+        var wait = Math.round(CFG.retryWait * Math.pow(2, attempt - 1)) + Math.floor(Math.random() * 300);
         // 用 info 而不是 debug：重试是排障时必须能看到的信息
-        log("info", "第 " + attempt + "/" + CFG.retry + " 次重试，等待 " + wait + "ms → " + url);
+        log("info", "第 " + attempt + "/" + CFG.retry + " 次重试，等待 " + wait + "ms → " + url +
+          "（上次失败: " + String((err && err.message) || err).slice(0, 60) + "）");
         return sleep(wait).then(run);
       });
     }
@@ -463,8 +469,8 @@
 
   /* ======================= 10. 入口 ======================= */
   function main() {
-    log("info", "运行环境: " + PLATFORM + " | retry=" + CFG.retry + " | timeout=" + TIMEOUT_VALUE +
-      (TIMEOUT_IS_MS ? "ms" : "s") + " | policy=" + (CFG.policy || "默认"));
+    log("info", "运行环境: " + PLATFORM + " | retry=" + CFG.retry + " | retryWait=" + CFG.retryWait +
+      "ms | timeout=" + TIMEOUT_VALUE + (TIMEOUT_IS_MS ? "ms" : "s") + " | policy=" + (CFG.policy || "默认"));
 
     if (typeof $request !== "undefined" && $request) {
       return handleCapture();
