@@ -14,6 +14,11 @@
 
 raw 拉不到就用 jsDelivr，把 `https://raw.githubusercontent.com/JwOKR/scripts-ninebot/main/` 换成 `https://cdn.jsdelivr.net/gh/JwOKR/scripts-ninebot@main/`。
 
+> **更新不生效先看这里**：`raw.githubusercontent.com` 带 `Cache-Control: max-age=300`，
+> 五分钟内二次拉取会命中 CDN 旧副本；jsDelivr 更狠，`max-age=604800`（7 天），
+> **改了配置别用 jsDelivr 拉更新**。客户端里「拉取更新」拿到旧内容时，
+> 直接删掉插件重新添加，或在客户端里手改那一行 cron 时间。
+
 ## 装完必须做的两件事
 
 1. **开 MITM 并信任证书**（否则抓不到 Token，甚至 App 请求可能异常）。
