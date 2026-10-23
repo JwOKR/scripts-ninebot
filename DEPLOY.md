@@ -92,7 +92,24 @@ cron "5 12 * * *" script-path=https://raw.githubusercontent.com/JwOKR/scripts-ni
 hostname = %APPEND% cn-cbu-gateway.ninebot.com
 ```
 
-Loon 的 `timeout` 单位是秒。
+Loon 的 `$httpClient` 的 `timeout` 单位是**毫秒**（Surge/Stash 是秒），脚本已按平台换算，配置里不用管。
+
+### cron 格式
+
+5 段、6 段都支持（`* * * * *` 分 时 日 月 周；`* * * * * *` 秒 分 时 日 月 周）。
+日志里的 `Match Condition: 0 5 8 * * *` 是 Loon 内部按 6 段补全后的显示，对应 8:05。
+
+### 想改签到时间，别改插件
+
+Loon 官方教程明确说：不建议把签到类脚本的 cron 写进插件文件，因为**通过插件添加的脚本，用户改不了执行时间**。
+
+所以正确做法是把定时任务写进**你自己的配置**的 `[Script]` 段：
+
+```ini
+cron "5 12 * * *" script-path=https://raw.githubusercontent.com/JwOKR/scripts-ninebot/main/ninebot-sign.js, timeout=60, tag=九号出行签到, enabled=true
+```
+
+插件里只保留抓 Token 那条。改时间 = 改你自己配置里这一行，不再受远程更新和 CDN 缓存影响。
 
 ---
 

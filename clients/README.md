@@ -46,6 +46,30 @@ raw 拉不到就用 jsDelivr，把 `https://raw.githubusercontent.com/JwOKR/scri
 
 `%APPEND%` 会自动把 `cn-cbu-gateway.ninebot.com` 追加进 MITM 列表，不用手改。
 
+### 改签到时间：别指望改插件
+
+**Loon 官方教程明确不建议把签到类脚本的 cron 写进插件文件——因为通过插件添加的脚本，用户改不了执行时间。**
+
+这就能解释为什么改了仓库里的 cron 后，客户端「拉取更新」始终还是老时间：脚本本体（`ninebot-sign.js`）每次都是运行时下载，能更新；而插件里的 cron 是你自己配置的一部分，不会跟着远程变。
+
+**想自由改时间，把定时任务搬到你自己的配置里：**
+
+```ini
+# 你自己的 Loon 配置 → [Script] 段
+cron "5 12 * * *" script-path=https://raw.githubusercontent.com/JwOKR/scripts-ninebot/main/ninebot-sign.js, timeout=60, tag=九号出行签到, enabled=true
+```
+
+插件只保留抓 Token 那一条。改时间就是改你自己配置文件里的这一行，不用再等远程更新。
+
+### cron 表达式：5 段、6 段都支持
+
+```
+* * * * *      分 时 日 月 周
+* * * * * *    秒 分 时 日 月 周
+```
+
+Loon 内部按 6 段存，所以「View Log」里 Match Condition 显示 `0 5 8 * * *` 是正常的——那是给 5 段写法前面补了个秒字段，实际就是 8:05。
+
 ## Quantumult X
 
 **两步，缺一不可：**

@@ -92,6 +92,20 @@ node tests/platform-timeout-test.js # 平台 timeout 单位与策略映射：7 �
 
 后者是 v1.1.1 加的回归测试——v1.1.0 曾因把 `timeout` 统一按秒传给 Loon（Loon 收毫秒）导致 100% 超时，见 [REVIEW.md](REVIEW.md) 第七节。
 
+### 实机验证（Loon 3.5.2 / 1005，2026-10-23）
+
+定时那次真实跑通了，日志正好印证 v1.1.2 的退避调整是必要的：
+
+```
+[INFO] 运行环境: Loon | retry=2 | retryWait=3000ms | timeout=10000ms | policy=默认
+[INFO] 第 1/2 次重试，等待 3258ms → .../user-sign/v2/status
+      （上次失败: HTTPClient request failed ... Error Domain=LNGCDAsync...）
+[INFO] 4C86B0…CB1A → 新签 | 连签 9 天 | +2N币
+```
+
+**第一次请求失败，等 3.2 秒后第二次成功**——说明定时任务触发那一刻网络确实还没就绪，
+原来的 500ms 退避跨不过这个窗口。
+
 ## 更新日志
 
 | 版本 | 内容 |
